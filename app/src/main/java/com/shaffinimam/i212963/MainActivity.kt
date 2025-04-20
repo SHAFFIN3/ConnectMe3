@@ -1,5 +1,6 @@
 package com.shaffinimam.i212963
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
@@ -25,8 +26,18 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         //forceDarkStatusBarIcons()
-        val intent = Intent(this, Login::class.java)
-        startActivity(intent)
+        val sharedPref = getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE)
+        val userId = sharedPref.getInt("user_id", -1)
+
+        if (userId != -1) {
+            // User is already logged in
+            startActivity(Intent(this, Navigation::class.java))
+            finish()
+        } else {
+            // No user ID saved, go to login screen
+            startActivity(Intent(this, Login::class.java))
+            finish()
+        }
     }
 //    private fun forceDarkStatusBarIcons() {
 //        // Set status bar background to a light color (e.g., white)

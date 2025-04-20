@@ -1,5 +1,6 @@
 package com.shaffinimam.i212963
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.Fragment
@@ -39,6 +40,21 @@ class Profile : Fragment() {
             val intent = Intent(requireContext(), FollowList::class.java)
             startActivity(intent)
         }
+
+        val logout = view.findViewById<ImageButton>(R.id.logout)
+
+        logout.setOnClickListener {
+            val sharedPref = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE)
+            with(sharedPref.edit()) {
+                remove("user_id")
+                apply()
+            }
+
+            val intent = Intent(requireContext(), Login::class.java)
+            startActivity(intent)
+            requireActivity().finish() // <-- Correct way to finish activity from a fragment
+        }
+
     }
 
 }
