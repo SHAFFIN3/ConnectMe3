@@ -52,7 +52,7 @@ class Profile : Fragment() {
 
             val intent = Intent(requireContext(), Login::class.java)
             startActivity(intent)
-            requireActivity().finish() // <-- Correct way to finish activity from a fragment
+            requireActivity().finish() 
         }
 
     }
