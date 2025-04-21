@@ -55,7 +55,7 @@ dependencies {
     implementation( "androidx.room:room-ktx:2.6.1")
 
     implementation("com.android.volley:volley:1.2.1")
-
+    implementation ("de.hdodenhof:circleimageview:3.1.0")
 
     implementation(libs.core.ktx)
     implementation(libs.androidx.junit.ktx)

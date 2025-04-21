@@ -64,7 +64,7 @@
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
         tools:ignore="UseCompoundDrawables">
-        <ImageView
+        <de.hdodenhof.circleimageview.CircleImageView
             android:id="@+id/prfpic"
             android:layout_width="150dp"
             android:layout_height="150dp"
@@ -75,6 +75,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/nametit"
             android:text="John Doe"
             android:fontFamily="sans-serif"
             android:textStyle="bold"

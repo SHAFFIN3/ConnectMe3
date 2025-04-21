@@ -2,17 +2,31 @@ package com.shaffinimam.i212963
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import com.android.volley.Request
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
+import com.shaffinimam.i212963.apiconfig.apiconf
+import de.hdodenhof.circleimageview.CircleImageView
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
 
 
 class Profile : Fragment() {
-
+    private var userID = 0
+    private lateinit var imageView: CircleImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,7 +42,8 @@ class Profile : Fragment() {
     }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        userID = SharedPrefManager.getUserId(requireContext())
+        imageView = view.findViewById(R.id.prfpic)
         val button = view.findViewById<ImageButton>(R.id.editpr)
         button.setOnClickListener {
             val intent = Intent(requireContext(), EditProfile::class.java)
@@ -55,6 +70,64 @@ class Profile : Fragment() {
             requireActivity().finish() // <-- Correct Implementation
         }
 
+        Geting(view)
+
     }
+
+    private fun Geting(view: View) {
+        val url = apiconf.BASE_URL + "profile/getProfile.php"
+        val name = view.findViewById<TextView>(R.id.nametit)
+
+        val stringRequest = object : StringRequest(
+            Request.Method.POST, url,
+            { response ->
+                try {
+                    val jsonObject = JSONObject(response)
+                    val success = jsonObject.getString("status") == "success"
+                    if (success) {
+                        val profile = jsonObject.getJSONObject("profile")
+                        val bioText = profile.getString("bio")
+                        val usernameText = profile.getString("username")
+                        val pictureBase64 = profile.getString("picture")
+
+                        val bioField = view.findViewById<TextView>(R.id.bio)
+                        bioField.text = bioText
+                        name.text = usernameText
+
+                        // Decode and display the picture
+                        val imageBytes = Base64.decode(pictureBase64, Base64.DEFAULT)
+                        val inputStream = ByteArrayInputStream(imageBytes)
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+
+                        if (bitmap != null) {
+                            imageView.setImageBitmap(bitmap)
+                        } else {
+                            Toast.makeText(requireContext(), "Failed to decode image", Toast.LENGTH_SHORT).show()
+                        }
+
+                    } else {
+                        Toast.makeText(requireContext(), "Profile not found", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(requireContext(), "Error parsing data", Toast.LENGTH_SHORT).show()
+                    Log.e("ProfileFragment", "error is: $e")
+                }
+            },
+            { error ->
+                error.printStackTrace()
+                Toast.makeText(requireContext(), "Network error", Toast.LENGTH_SHORT).show()
+            }) {
+
+            override fun getParams(): MutableMap<String, String> {
+                val params = HashMap<String, String>()
+                params["id"] = userID.toString()
+                return params
+            }
+        }
+
+        Volley.newRequestQueue(requireContext()).add(stringRequest)
+    }
+
 
 }

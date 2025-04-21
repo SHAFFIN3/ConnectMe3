@@ -18,14 +18,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.shaffinimam.i212963.apiconfig.apiconf
+import de.hdodenhof.circleimageview.CircleImageView
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 class EditProfile : AppCompatActivity() {
-    private lateinit var imageView: ImageView
+    private lateinit var imageView: CircleImageView
     private var base64Image: String? = null
     private var userID = 0
 
@@ -44,6 +48,63 @@ class EditProfile : AppCompatActivity() {
         saveBtn.setOnClickListener {
             sendProfileToServer()
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val url = apiconf.BASE_URL + "profile/getProfile.php"
+        val name = findViewById<TextView>(R.id.nametit)
+        val stringRequest = object : StringRequest(
+            Request.Method.POST, url,
+            { response ->
+                try {
+                    val jsonObject = JSONObject(response)
+                    val success = jsonObject.getString("status") == "success"
+                    if (success) {
+                        val profile = jsonObject.getJSONObject("profile")
+                        val usernameText = profile.getString("username")
+                        val contactText = profile.getString("contact")
+                        val bioText = profile.getString("bio")
+                        val pictureBase64 = profile.getString("picture")
+
+                        val usernameField = findViewById<EditText>(R.id.usrname)
+                        val contactField = findViewById<EditText>(R.id.contact)
+                        val bioField = findViewById<EditText>(R.id.bio)
+
+                        usernameField.setText(usernameText)
+                        contactField.setText(contactText)
+                        bioField.setText(bioText)
+                        name.setText(usernameText)
+
+                        // Decode and display the picture
+                        val imageBytes = Base64.decode(pictureBase64, Base64.DEFAULT)
+                        val inputStream = ByteArrayInputStream(imageBytes)
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        imageView.setImageBitmap(bitmap)
+
+                    } else {
+                        Toast.makeText(this, "Profile not found", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this, "Error parsing data", Toast.LENGTH_SHORT).show()
+                    Log.e("E", "error is: $e")
+                }
+            },
+            { error ->
+                error.printStackTrace()
+                Toast.makeText(this, "Network error", Toast.LENGTH_SHORT).show()
+            }) {
+
+            override fun getParams(): MutableMap<String, String> {
+                val params = HashMap<String, String>()
+                params["id"] = userID.toString()
+                return params
+            }
+        }
+
+        Volley.newRequestQueue(this).add(stringRequest)
+
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -81,7 +142,7 @@ class EditProfile : AppCompatActivity() {
             Response.Listener { response ->
                 Log.e("E", "sendProfileToServer: $response")
                 Toast.makeText(this, "Server: $response", Toast.LENGTH_LONG).show()
-                val intent = Intent(this, Login::class.java)
+                val intent = Intent(this, Home::class.java)
                 startActivity(intent)
             },
             Response.ErrorListener { error ->
