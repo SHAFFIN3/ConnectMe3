@@ -47,12 +47,16 @@
             android:paddingEnd="20dp">
 
             <ImageView
-                android:layout_width="wrap_content"
+                android:id="@+id/finalPostImage"
+                android:layout_width="match_parent"
                 android:layout_height="380dp"
+                android:scaleType="centerCrop"
                 android:src="@drawable/post"
                 tools:ignore="ContentDescription" />
 
+
             <EditText
+                android:id="@+id/captionEditText"
                 android:layout_width="match_parent"
                 android:layout_height="120dp"
                 android:background="@drawable/textinp"
@@ -60,16 +64,17 @@
                 android:inputType="text"
                 android:hint="Add a Caption ..."
                 android:textColor="#000"
-                android:textColorHint="#2d2d2d"
-                tools:ignore="Autofill,HardcodedText" />
+                android:textColorHint="#2d2d2d" />
+
             <Button
+                android:id="@+id/shareButton"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
                 android:layout_marginTop="50dp"
                 android:background="@drawable/buttonlog"
                 android:text="Share"
-                android:textColor="@color/white"
-                tools:ignore="HardcodedText" />
+                android:textColor="@color/white" />
+
 
 
         </LinearLayout>

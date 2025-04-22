@@ -261,9 +261,13 @@ class PostCamera : AppCompatActivity() {
 
     private fun navigateToPostComplete() {
         val intent = Intent(this, PostComplete::class.java)
+        tempImageUri?.let {
+            intent.putExtra("image_uri", it.toString())
+        }
         startActivity(intent)
         Log.d("PostCamera", "Navigating to PostComplete")
     }
+
 
     override fun onSupportNavigateUp(): Boolean {
         finish()
