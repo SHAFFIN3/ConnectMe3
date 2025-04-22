@@ -86,49 +86,11 @@
                         android:background="@drawable/home_symbol_addstory"
                         tools:ignore="ContentDescription" />
 
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-                    <ImageView
-                        android:layout_width="70dp"
-                        android:layout_height="70dp"
-                        android:layout_marginEnd="5dp"
-                        android:src="@drawable/prf"
-                        tools:ignore="ContentDescription,RtlSymmetry" />
-
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvStories"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        tools:listitem="@layout/item_story" />
 
                 </LinearLayout>
             </HorizontalScrollView>
