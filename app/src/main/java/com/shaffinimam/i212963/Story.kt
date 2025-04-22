@@ -1,6 +1,8 @@
 package com.shaffinimam.i212963
 
 import android.Manifest
+import android.app.ProgressDialog
+import android.app.VoiceInteractor
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -27,12 +29,16 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.android.volley.DefaultRetryPolicy
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
+import com.shaffinimam.i212963.apiconfig.apiconf
+import org.json.JSONException
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -152,8 +158,8 @@ class Story : AppCompatActivity() {
         }
 
         nextButton.setOnClickListener {
-            if (isImageCaptured) {
-                //uploadStory()
+            if (isImageCaptured && capturedImageUri != null) {
+                uploadStory()
             } else {
                 Toast.makeText(this, "Please capture or select an image first", Toast.LENGTH_SHORT).show()
             }
@@ -313,6 +319,83 @@ class Story : AppCompatActivity() {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream)
         val byteArray = byteArrayOutputStream.toByteArray()
         return Base64.encodeToString(byteArray, Base64.DEFAULT)
+    }
+    private fun uploadStory() {
+        val userId = SharedPrefManager.getUserId(this)
+        if (userId == null) {
+            Toast.makeText(this, "User not logged in", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 2. Load bitmap from the URI
+        val uri = capturedImageUri!!
+        val bitmap = contentResolver.openInputStream(uri).use { input ->
+            BitmapFactory.decodeStream(input)
+        } ?: run {
+            Toast.makeText(this, "Failed to read image", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 3. (Optional) Resize to avoid huge payloads
+        val resized = resizeBitmap(bitmap, 800)
+
+        // 4. Convert to Base64
+        val imageBase64 = bitmapToBase64(resized)
+
+
+        val url = "${apiconf.BASE_URL}Story/createstory.php"
+        val queue = Volley.newRequestQueue(this)
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                // parse JSON response
+                try {
+                    val json = JSONObject(response)
+                    if (json.getString("status") == "success") {
+                        Toast.makeText(this,
+                            "Story #${json.getInt("story_id")} created!",
+                            Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this,
+                            "Error: ${json.getString("message")}",
+                            Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: JSONException) {
+                    Toast.makeText(this, "Invalid server response", Toast.LENGTH_SHORT).show()
+                }
+            },
+            { error ->
+                Toast.makeText(this,
+                    "Upload failed: ${error.localizedMessage}",
+                    Toast.LENGTH_LONG).show()
+            }
+        ) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf(
+                    // these keys must match your PHP:
+                    "id"      to userId.toString(),
+                    "picture" to imageBase64
+                )
+            }
+        }
+
+        val progress = ProgressDialog(this).apply {
+            setMessage("Uploading...")
+            setCancelable(false)
+            show()
+        }
+        request.setRetryPolicy(
+            DefaultRetryPolicy(
+                10_000,
+                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+            )
+        )
+        queue.add(request).also {
+            it.addMarker("uploadStory")
+            it.setShouldCache(false)
+        }
+        // Dismiss dialog on complete
+        queue.addRequestFinishedListener<VoiceInteractor.Request> { progress.dismiss() }
     }
 
     override fun onDestroy() {
