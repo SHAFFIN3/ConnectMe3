@@ -14,18 +14,22 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
+import com.shaffinimam.i212963.apiconfig.apiconf
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import javax.net.ssl.HttpsURLConnection
 import kotlin.concurrent.thread
 
 class PostComplete : AppCompatActivity() {
 
-    companion object {
-        const val BASE_URL = "http://192.168.18.18/connectme"
-    }
 
     private lateinit var imageView: ImageView
     private lateinit var captionInput: EditText
@@ -64,48 +68,66 @@ class PostComplete : AppCompatActivity() {
     }
 
     private fun uploadPost(imageUri: Uri, caption: String) {
+        val context = this@PostComplete
+        val queue = Volley.newRequestQueue(context)
+
         thread {
             try {
                 val inputStream: InputStream? = contentResolver.openInputStream(imageUri)
                 val bitmap = BitmapFactory.decodeStream(inputStream)
-                val compressedBitmap = compressBitmap(bitmap, 70) // Compress image to 70% quality
+                val compressedBitmap = resizeBitmap(bitmap, 800) // Compress image to 800px max dimension (adjust as needed)
                 val base64Image = bitmapToBase64(compressedBitmap)
 
                 val userId = SharedPrefManager.getUserId(this)
-                val url = URL("$BASE_URL/Post/createpost.php")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                val apiUrl = "${apiconf.BASE_URL}/Post/createpost.php"
 
-                val postData =
-                    "id=$userId&picture=${Base64.encodeToString(base64Image.toByteArray(), Base64.NO_WRAP)}&caption=${caption}"
-                conn.outputStream.write(postData.toByteArray())
+                val postData = "id=$userId&picture=$base64Image&caption=$caption"
 
-                val responseCode = conn.responseCode
-                if (responseCode == HttpsURLConnection.HTTP_OK) {
-                    val response = conn.inputStream.bufferedReader().readText()
-                    val jsonResponse = org.json.JSONObject(response)
-                    if (jsonResponse.getString("status") == "success") {
-                        runOnUiThread {
-                            Toast.makeText(this@PostComplete, "Post uploaded successfully", Toast.LENGTH_SHORT).show()
+                // Create a POST request using Volley
+                val request = object : StringRequest(
+                    Request.Method.POST, apiUrl,
+                    Response.Listener { response ->
+                        try {
+                            val jsonResponse = JSONObject(response)
+                            if (jsonResponse.getString("status") == "success") {
+                                runOnUiThread {
+                                    Toast.makeText(this@PostComplete, "Post uploaded successfully", Toast.LENGTH_SHORT).show()
 
-                            // Redirect to Navigation or your preferred activity
-                            val intent = Intent(this@PostComplete, Navigation::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                            finish()
+                                    // Redirect to Navigation or your preferred activity
+                                    val intent = Intent(this@PostComplete, Navigation::class.java)
+                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            } else {
+                                runOnUiThread {
+                                    Toast.makeText(this@PostComplete, "Failed: ${jsonResponse.getString("message")}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            runOnUiThread {
+                                Toast.makeText(this@PostComplete, "Error processing response: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
-                    } else {
+                    },
+                    Response.ErrorListener { error ->
                         runOnUiThread {
-                            Toast.makeText(this@PostComplete, "Failed: ${jsonResponse.getString("message")}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@PostComplete, "Network Error: ${error.localizedMessage}", Toast.LENGTH_LONG).show()
                         }
-                    }
-                } else {
-                    runOnUiThread {
-                        Toast.makeText(this@PostComplete, "Server error: $responseCode", Toast.LENGTH_LONG).show()
+                    }) {
+
+                    override fun getParams(): MutableMap<String, String> {
+                        val params = mutableMapOf<String, String>()
+                        params["id"] = userId.toString()
+                        params["picture"] = base64Image
+                        params["caption"] = caption
+                        return params
                     }
                 }
+
+                // Add the request to the queue
+                queue.add(request)
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 runOnUiThread {
@@ -115,17 +137,33 @@ class PostComplete : AppCompatActivity() {
         }
     }
 
-    private fun compressBitmap(bitmap: Bitmap, quality: Int): Bitmap {
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream)
-        val byteArray = stream.toByteArray()
-        return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
-    }
-
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val byteArrayOutputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream)  // Compress at 100% quality
         val byteArray = byteArrayOutputStream.toByteArray()
-        return Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        return Base64.encodeToString(byteArray, Base64.DEFAULT)  // Use Base64.DEFAULT encoding
+    }
+
+    private fun resizeBitmap(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        if (width <= maxDimension && height <= maxDimension) {
+            return bitmap
+        }
+
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+
+        if (width > height) {
+            newWidth = maxDimension
+            newHeight = (newWidth / ratio).toInt()
+        } else {
+            newHeight = maxDimension
+            newWidth = (newHeight * ratio).toInt()
+        }
+
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
 }

@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,10 +13,16 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.android.volley.Request
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 import com.shaffinimam.i212963.StoriesDB.StoryDbHelper
 import com.shaffinimam.i212963.StoriesDB.StoryRepository
 import com.shaffinimam.i212963.apiconfig.apiconf
 import com.shaffinimam.i212963s.StoryAdapter
+import com.shaffinimam.i212963.postdata.Post
+import org.json.JSONException
+import org.json.JSONObject
 
 class Home : Fragment() {
 
@@ -40,6 +47,7 @@ class Home : Fragment() {
                 Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
             }
         )
+
     }
 
     override fun onCreateView(
@@ -61,8 +69,23 @@ class Home : Fragment() {
             false
         )
 
-        // Load whatever’s already in the DB
         loadFromDb()
+
+
+        val recyclerView: RecyclerView = view.findViewById(R.id.recyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+
+        getPostFromAPI(this, apiconf.BASE_URL+"Post/getpost.php",
+            onSuccess = { postList ->
+                val adapter = PostAdapter(requireContext(), postList)
+                recyclerView.adapter = adapter
+            },
+            onFailure = { errorMessage ->
+                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
+            }
+        )
+
+
     }
 
     private fun loadFromDb() {
@@ -72,6 +95,53 @@ class Home : Fragment() {
         }
         rvStories.adapter = adapter
     }
+    fun getPostFromAPI(
+        fragment: Fragment,
+        apiUrl: String,
+        onSuccess: (List<Post>) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        val context = fragment.requireContext()
+        val queue = Volley.newRequestQueue(context)
+
+        val request = StringRequest(Request.Method.GET, apiUrl, { response ->
+            try {
+                val json = JSONObject(response)
+                val status = json.optString("status")
+
+                if (status == "success") {
+                    val postsArray = json.getJSONArray("posts")
+                    val postList = mutableListOf<Post>()
+
+                    for (i in 0 until postsArray.length()) {
+                        val obj = postsArray.getJSONObject(i)
+                        val post = Post(
+                            postId = obj.getInt("post_id"),
+                            picture = obj.getString("picture"),
+                            likes = obj.getInt("likes"),
+                            profilePic = obj.getString("profilepic"),
+                            caption = obj.getString("caption"),
+                            username = obj.getString("username")
+                        )
+                        postList.add(post)
+                    }
+
+                    onSuccess(postList)
+                } else {
+                    onFailure("API failed: ${json.optString("message")}")
+                }
+            } catch (e: JSONException) {
+                onFailure("JSON Error: ${e.localizedMessage}")
+                Log.e("ERr",e.localizedMessage)
+            }
+        }, { error ->
+            onFailure("Network Error: ${error.localizedMessage}")
+        })
+
+        queue.add(request)
+    }
+
+
 
     private fun showStoryDialog(pictureBase64: String) {
         val bytes = Base64.decode(pictureBase64, Base64.DEFAULT)
