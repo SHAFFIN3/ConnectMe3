@@ -18,7 +18,8 @@
         android:background="#ffffff"
         tools:context=".DM">
 
-            <ImageView
+            <de.hdodenhof.circleimageview.CircleImageView
+                android:id="@+id/imageView"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 android:src="@drawable/prf"

@@ -1,4 +1,7 @@
 package com.shaffinimam.i212963
 
-class Model_dm(val name:String) {
-}
+data class Model_dm(
+    val id: Int,
+    val username: String,
+    val pictureBitmap: android.graphics.Bitmap
+)
