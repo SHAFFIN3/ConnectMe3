@@ -44,8 +44,8 @@ class Contacts : Fragment() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val fragment = when (tab?.position) {
-                    0 -> Contact_Follow_Fragment()
-                    else -> Contact_All_Fragment()
+                    0 -> Contact_All_Fragment()
+                    else -> Contact_Follow_Fragment()
                 }
                 childFragmentManager.beginTransaction()
                     .replace(R.id.frameLayout, fragment)
