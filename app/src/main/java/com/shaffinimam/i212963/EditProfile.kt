@@ -115,15 +115,38 @@ class EditProfile : AppCompatActivity() {
 
             val inputStream = contentResolver.openInputStream(imageUri!!)
             val bitmap = BitmapFactory.decodeStream(inputStream)
-            base64Image = encodeImageToBase64(bitmap)
+            val bitmap2 = resizeBitmap(bitmap,500)
+            base64Image = encodeImageToBase64(bitmap2)
         }
     }
 
     private fun encodeImageToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
         val imageBytes = outputStream.toByteArray()
         return Base64.encodeToString(imageBytes, Base64.DEFAULT)
+    }
+    private fun resizeBitmap(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        if (width <= maxDimension && height <= maxDimension) {
+            return bitmap
+        }
+
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+
+        if (width > height) {
+            newWidth = maxDimension
+            newHeight = (newWidth / ratio).toInt()
+        } else {
+            newHeight = maxDimension
+            newWidth = (newHeight * ratio).toInt()
+        }
+
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
 
     private fun sendProfileToServer() {
