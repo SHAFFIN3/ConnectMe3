@@ -2,6 +2,7 @@ package com.shaffinimam.i212963
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -13,8 +14,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.android.volley.Request
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
+import com.shaffinimam.i212963.apiconfig.apiconf
 import com.shaffinimam.i212963.profiledb.ProfileDBHelper
 import de.hdodenhof.circleimageview.CircleImageView
+import org.json.JSONObject
 
 
 class Contact_All_Fragment : Fragment() {
@@ -71,10 +77,11 @@ class Adapter_cont(
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val nameText: TextView = itemView.findViewById(R.id.name)
         val profileImage: CircleImageView = itemView.findViewById(R.id.imageView)
+        val statusIndicator: View = itemView.findViewById(R.id.statusshow)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(context).inflate(R.layout.row_followers, parent, false) // your item layout
+        val view = LayoutInflater.from(context).inflate(R.layout.row_followers, parent, false)
         return ViewHolder(view)
     }
 
@@ -83,8 +90,46 @@ class Adapter_cont(
         holder.nameText.text = user.username
         holder.profileImage.setImageBitmap(user.pictureBitmap)
 
+        // Set default status color (gray)
+        holder.statusIndicator.setBackgroundColor(android.graphics.Color.parseColor("#5c5c5c"))
+
+        // Check user status via API
+        checkUserStatus(user.id, holder.statusIndicator)
     }
 
     override fun getItemCount(): Int = userList.size
-}
 
+    private fun checkUserStatus(userId: Int, statusView: View) {
+        // Create request URL
+        val url = apiconf.BASE_URL+"getstatus.php?id=$userId"
+
+        val request = StringRequest(
+            Request.Method.GET, url,
+            { response ->
+                try {
+                    val jsonResponse = JSONObject(response)
+                    if (jsonResponse.getString("status") == "success") {
+                        val userStatus = jsonResponse.getString("user_status")
+
+                        // Update status indicator color based on status
+                        when (userStatus) {
+                            "online" -> statusView.setBackgroundColor(Color.parseColor("#4CAF50")) // Green
+                            "offline" -> statusView.setBackgroundColor(Color.parseColor("#5c5c5c")) // Gray
+                        }
+                    } else {
+                        // Keep default color if status check failed
+                        Log.e("StatusCheck", "Failed to get status: ${jsonResponse.optString("message", "Unknown error")}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("StatusCheck", "Error parsing response: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("StatusCheck", "Volley error: ${error.message}")
+            }
+        )
+
+        // Add the request to RequestQueue
+        Volley.newRequestQueue(context).add(request)
+    }
+}

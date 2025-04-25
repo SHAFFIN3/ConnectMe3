@@ -23,7 +23,13 @@
             android:layout_height="60dp"
             android:src="@drawable/prf"
             tools:ignore="ContentDescription" />
-
+        <View
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:background="#5c5c5c"
+            android:id="@+id/statusshow"
+            android:layout_margin="10dp"
+            android:layout_gravity="center_vertical" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -40,6 +46,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:orientation="vertical">
+
 
             <ImageView
                 android:layout_width="25dp"
