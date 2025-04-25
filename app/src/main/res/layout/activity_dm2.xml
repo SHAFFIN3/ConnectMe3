@@ -9,6 +9,7 @@
     android:orientation="vertical"
     android:layout_marginTop="30dp"
     android:background="#ffffff">
+
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -17,6 +18,7 @@
         app:navigationIcon="@drawable/arrowback"
         app:title="John Doe"
         app:titleTextColor="#000000">
+
         <ImageButton
             android:id="@+id/callpers"
             android:layout_width="20dp"
@@ -26,6 +28,7 @@
             android:layout_marginRight="20dp"
             android:backgroundTint="@color/send_button"
             tools:ignore="ContentDescription,RtlHardcoded" />
+
         <ImageButton
             android:layout_width="30dp"
             android:layout_height="30dp"
@@ -35,14 +38,17 @@
             android:backgroundTint="@color/send_button"
             tools:ignore="ContentDescription,RtlHardcoded" />
     </androidx.appcompat.widget.Toolbar>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
+
             <de.hdodenhof.circleimageview.CircleImageView
                 android:id="@+id/prfp"
                 android:layout_width="100dp"
@@ -50,6 +56,7 @@
                 android:src="@drawable/prf"
                 android:layout_gravity="center"
                 tools:ignore="ContentDescription" />
+
             <Button
                 android:id="@+id/viewpr"
                 android:layout_width="wrap_content"
@@ -59,19 +66,45 @@
                 tools:ignore="HardcodedText" />
 
         </LinearLayout>
-
     </ScrollView>
-    <EditText
+
+    <!-- RecyclerView for displaying messages -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/messages_recycler_view"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:hint="Enter Message ..."
-        android:background="@drawable/textinp"
-        android:layout_margin="20dp"
-        android:drawableEnd="@drawable/send24"
-        android:inputType="text"
-        android:paddingEnd="10dp"
-        android:textColor="#000"
-        android:textColorHint="#2b2b2b"
-        tools:ignore="Autofill,HardcodedText,RtlSymmetry" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_margin="16dp"
+        android:scrollbars="vertical" />
+
+    <!-- Message input and send button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/message_input"
+            android:layout_width="0dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            android:hint="Enter Message ..."
+            android:background="@drawable/textinp"
+            android:inputType="text"
+            android:padding="10dp"
+            android:textColor="#000"
+            android:textColorHint="#2b2b2b" />
+
+        <ImageButton
+            android:id="@+id/send_button"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/send24"
+            android:contentDescription="Send"
+            android:padding="10dp"
+            android:tint="@color/send_button" />
+    </LinearLayout>
 
 </LinearLayout>
