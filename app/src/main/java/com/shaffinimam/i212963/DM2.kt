@@ -1,26 +1,27 @@
 package com.shaffinimam.i212963
 
+import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
-import android.widget.ImageButton
-import android.widget.EditText
-import androidx.activity.enableEdgeToEdge
+import android.view.LayoutInflater
+import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.android.volley.Response
+import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
 import com.shaffinimam.i212963.apiconfig.apiconf
 import com.shaffinimam.i212963.profiledb.ProfileDBHelper
 import de.hdodenhof.circleimageview.CircleImageView
-import androidx.recyclerview.widget.RecyclerView
-import org.json.JSONArray
 import org.json.JSONObject
-import com.android.volley.Request.Method
+import java.io.ByteArrayOutputStream
 
 class DM2 : AppCompatActivity() {
 
@@ -28,10 +29,10 @@ class DM2 : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var messageAdapter: MessagesAdapter
     private val messages = mutableListOf<Message>()
+    private var selectedMediaBase64 = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_dm2)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
@@ -39,7 +40,6 @@ class DM2 : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         id = intent.getIntExtra("id", -1)
-        Log.d("DM2", "Received receiver ID: $id")
 
         var base64 = ""
         var name = ""
@@ -54,153 +54,219 @@ class DM2 : AppCompatActivity() {
         }
 
         toolbar.title = name
-
         val bitmap = if (base64.isNotEmpty()) {
             val bytes = Base64.decode(base64, Base64.DEFAULT)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        } else {
-            null
-        }
+        } else null
+        findViewById<CircleImageView>(R.id.prfp).setImageBitmap(bitmap)
 
-        val prf = findViewById<CircleImageView>(R.id.prfp)
-        prf.setImageBitmap(bitmap)
-
-        val cal = findViewById<ImageButton>(R.id.callpers)
-        cal.setOnClickListener {
+        findViewById<ImageButton>(R.id.callpers).setOnClickListener {
             val intent = Intent(this, Call::class.java)
             intent.putExtra("name", name)
             startActivity(intent)
         }
 
+        findViewById<ImageButton>(R.id.upload_button).setOnClickListener {
+            openGallery()
+        }
+
         recyclerView = findViewById(R.id.messages_recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        messageAdapter = MessagesAdapter(messages)
+        messageAdapter = MessagesAdapter(messages) { message -> handleLongPressOnMessage(message) }
         recyclerView.adapter = messageAdapter
 
         loadMessages()
 
-        val sendBtn = findViewById<ImageButton>(R.id.send_button)
-        val messageInput = findViewById<EditText>(R.id.message_input)
-
-        sendBtn.setOnClickListener {
+        findViewById<ImageButton>(R.id.send_button).setOnClickListener {
+            val messageInput = findViewById<EditText>(R.id.message_input)
             val messageText = messageInput.text.toString().trim()
             if (messageText.isNotEmpty()) {
-                sendMessage(messageText)
+                sendMessage(messageText, "text")
                 messageInput.text.clear()
-            } else {
-                Log.d("DM2", "Message input is empty.")
             }
         }
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        finish() // Close current activity
+        finish()
         return true
     }
 
-    private fun sendMessage(message: String) {
+    private fun sendMessage(content: String, type: String) {
         val senderId = SharedPrefManager.getUserId(this)
+        if (senderId == -1) return
 
-        if (senderId == -1) {
-            Log.e("DM2", "Error: User is not authenticated. sender_id is -1")
-            return
+        val url = if (type == "media") {
+            "${apiconf.BASE_URL}/Message/send_media_message.php"
+        } else {
+            "${apiconf.BASE_URL}/Message/send_message.php"
         }
-
-        val url = "${apiconf.BASE_URL}/Message/send_message.php"
-        Log.d("DM2", "Sending message from sender $senderId to receiver $id: $message")
 
         val queue = Volley.newRequestQueue(this)
-        val stringRequest = object : StringRequest(Method.POST, url,
-            Response.Listener { response ->
-                Log.d("DM2", "Message sent successfully, response: $response")
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                Log.d("DM2", "Sent: $response")
                 loadMessages()
+                selectedMediaBase64 = ""
             },
-            Response.ErrorListener { error ->
-                Log.e("DM2", "Error sending message: ${error.message}")
+            { error ->
+                Log.e("DM2", "Send error: ${error.message}")
             }) {
-
             override fun getParams(): MutableMap<String, String> {
-                val params = HashMap<String, String>()
-                params["sender_id"] = senderId.toString()
-                params["receiver_id"] = id.toString()
-                params["message_type"] = "text"
-                params["message_content"] = message
-                return params
+                return if (type == "media") {
+                    hashMapOf(
+                        "sender_id" to senderId.toString(),
+                        "receiver_id" to id.toString(),
+                        "media_uri" to selectedMediaBase64
+                    )
+                } else {
+                    hashMapOf(
+                        "sender_id" to senderId.toString(),
+                        "receiver_id" to id.toString(),
+                        "message_type" to "text",
+                        "message_content" to content
+                    )
+                }
             }
         }
-        queue.add(stringRequest)
+
+        queue.add(request)
     }
 
     private fun loadMessages() {
         val senderId = SharedPrefManager.getUserId(this)
-
-        if (senderId == -1) {
-            Log.e("DM2", "Error: User is not authenticated. sender_id is -1")
-            return
-        }
+        if (senderId == -1) return
 
         val url = "${apiconf.BASE_URL}/Message/get_messages.php"
-        Log.d("DM2", "Loading messages for sender $senderId and receiver $id")
-
         val queue = Volley.newRequestQueue(this)
-        val stringRequest = object : StringRequest(Method.POST, url,
-            Response.Listener { response ->
-                Log.d("DM2", "Messages loaded: $response")
-                try {
-                    val jsonResponse = JSONObject(response)
-                    if (jsonResponse.getString("status") == "failure") {
-                        Log.e("DM2", "Error loading messages: ${jsonResponse.getString("message")}")
-                        return@Listener
-                    }
 
-                    val messagesList = parseMessages(response)
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                val jsonResponse = JSONObject(response)
+                if (jsonResponse.getString("status") == "success") {
+                    val newMessages = parseMessages(response)
                     messages.clear()
-                    messages.addAll(messagesList)
+                    messages.addAll(newMessages)
                     messageAdapter.notifyDataSetChanged()
-                } catch (e: Exception) {
-                    Log.e("DM2", "Error parsing messages: ${e.message}")
+                    recyclerView.scrollToPosition(messages.size - 1)
                 }
             },
-            Response.ErrorListener { error ->
-                Log.e("DM2", "Error loading messages: ${error.message}")
+            { error ->
+                Log.e("DM2", "Load error: ${error.message}")
             }) {
-
             override fun getParams(): MutableMap<String, String> {
-                val params = HashMap<String, String>()
-                params["user1"] = senderId.toString()
-                params["user2"] = id.toString()
-                return params
+                return hashMapOf("user1" to senderId.toString(), "user2" to id.toString())
             }
         }
-        queue.add(stringRequest)
+
+        queue.add(request)
     }
 
     private fun parseMessages(response: String): List<Message> {
-        val messages = mutableListOf<Message>()
+        val list = mutableListOf<Message>()
+        val json = JSONObject(response)
+        val array = json.getJSONArray("messages")
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            list.add(
+                Message(
+                    obj.getInt("id"),
+                    obj.getInt("sender_id"),
+                    obj.getInt("receiver_id"),
+                    obj.getString("message_content"),
+                    obj.getString("message_type"),
+                    obj.getString("timestamp"),
+                    obj.optString("media_uri", "")
+                )
+            )
+        }
+        return list
+    }
 
-        try {
-            val jsonResponse = JSONObject(response)
-            if (jsonResponse.getString("status") == "failure") {
-                Log.e("DM2", "Error: ${jsonResponse.getString("message")}")
-                return messages
+    private fun openGallery() {
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
+        openMediaResultLauncher.launch(intent)
+    }
+
+    private val openMediaResultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val uri: Uri? = result.data?.data
+                uri?.let {
+                    val bitmap = contentResolver.openInputStream(it)?.use { stream ->
+                        BitmapFactory.decodeStream(stream)
+                    }
+                    bitmap?.let { bmp ->
+                        selectedMediaBase64 = encodeToBase64(bmp)
+                        sendMessage("[Media]", "media")
+                    }
+                }
             }
-
-            val jsonArray = jsonResponse.getJSONArray("messages")
-            for (i in 0 until jsonArray.length()) {
-                val jsonObject = jsonArray.getJSONObject(i)
-                val senderId = jsonObject.getInt("sender_id")
-                val receiverId = jsonObject.getInt("receiver_id")
-                val text = jsonObject.getString("message_content")
-                val messageType = jsonObject.getString("message_type")
-                val timestamp = jsonObject.getString("timestamp")
-
-                val message = Message(senderId, receiverId, text, messageType, timestamp)
-                messages.add(message)
-            }
-        } catch (e: Exception) {
-            Log.e("DM2", "Error parsing messages: ${e.message}")
         }
 
-        return messages
+    private fun encodeToBase64(bitmap: Bitmap): String {
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos)
+        val bytes = baos.toByteArray()
+        return Base64.encodeToString(bytes, Base64.DEFAULT)
+    }
+
+    private fun handleLongPressOnMessage(message: Message) {
+        val options = arrayOf("Edit", "Delete")
+        AlertDialog.Builder(this)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showEditMessageDialog(message)
+                    1 -> deleteMessage(message)
+                }
+            }
+            .show()
+    }
+
+    private fun showEditMessageDialog(message: Message) {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_edit_message, null)
+        val editText = view.findViewById<EditText>(R.id.edit_message_input)
+        editText.setText(message.content)
+
+        AlertDialog.Builder(this)
+            .setTitle("Edit Message")
+            .setView(view)
+            .setPositiveButton("Save") { _, _ ->
+                val newContent = editText.text.toString()
+                if (newContent.isNotEmpty()) editMessage(message, newContent)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun editMessage(message: Message, newContent: String) {
+        val url = "${apiconf.BASE_URL}/Message/edit_message.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val request = object : StringRequest(Method.POST, url,
+            { loadMessages() },
+            { error -> Log.e("DM2", "Edit error: ${error.message}") }) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf("message_id" to message.id.toString(), "new_content" to newContent)
+            }
+        }
+
+        queue.add(request)
+    }
+
+    private fun deleteMessage(message: Message) {
+        val url = "${apiconf.BASE_URL}/Message/delete_message.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val request = object : StringRequest(Method.POST, url,
+            { loadMessages() },
+            { error -> Log.e("DM2", "Delete error: ${error.message}") }) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf("message_id" to message.id.toString())
+            }
+        }
+
+        queue.add(request)
     }
 }
