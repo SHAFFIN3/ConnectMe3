@@ -64,6 +64,7 @@ class DM2 : AppCompatActivity() {
         findViewById<ImageButton>(R.id.callpers).setOnClickListener {
             val intent = Intent(this, Call::class.java)
             intent.putExtra("name", name)
+            intent.putExtra("uid", id.toString())
             startActivity(intent)
         }
 

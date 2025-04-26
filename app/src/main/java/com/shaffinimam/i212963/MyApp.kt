@@ -13,8 +13,15 @@ import com.shaffinimam.i212963.apiconfig.apiconf
 import org.json.JSONObject
 
 class MyApp:Application(),LifecycleObserver {
+    private lateinit var callListener: CallListener
+
     override fun onCreate() {
         super.onCreate()
+        val userId = SharedPrefManager.getUserId(this)
+        if (userId > 0) {
+            Log.d("MyApplication", "Initializing call listener for user: $userId")
+            callListener = CallListener(applicationContext, userId)
+        }
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
     }
     @OnLifecycleEvent(Lifecycle.Event.ON_START)

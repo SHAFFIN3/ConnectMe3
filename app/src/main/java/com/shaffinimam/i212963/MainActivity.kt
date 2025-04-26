@@ -2,58 +2,68 @@ package com.shaffinimam.i212963
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
-import android.view.View
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
+import com.android.volley.Response
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
+import com.shaffinimam.i212963.apiconfig.apiconf
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        setContentView(R.layout.activity_main)
-//        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-//            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-//            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-//            insets
-//        }
-//    }
+    private val TAG = "MainActivity"
+    private lateinit var callListener: CallListener
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
-        //forceDarkStatusBarIcons()
+
         val sharedPref = getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE)
         val userId = sharedPref.getInt("user_id", -1)
 
         if (userId != -1) {
-            // User is already logged in
+            Log.d(TAG, "User already logged in with ID: $userId")
+            // Initialize call listener here to ensure it's created for logged-in users
+            callListener = CallListener(applicationContext, userId)
+
             startActivity(Intent(this, Navigation::class.java))
             finish()
         } else {
-            // No user ID saved, go to login screen
+            Log.d(TAG, "No user logged in, going to login screen")
             startActivity(Intent(this, Login::class.java))
             finish()
         }
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                saveTokenToServer(userId, token)
+            }
+        }
     }
-//    private fun forceDarkStatusBarIcons() {
-//        // Set status bar background to a light color (e.g., white)
-//        window.statusBarColor = Color.WHITE
-//        WindowCompat.setDecorFitsSystemWindows(window, false)
-//
-//        // Force dark icons in the status bar
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-//        }
-//
-//        // For Android 11 (API 30) and above, use WindowInsetsController
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-//            WindowCompat.getInsetsController(window, window.decorView).apply {
-//                isAppearanceLightStatusBars = true
-//            }
-//        }
-//    }
+
+    private fun saveTokenToServer(userId: Int, token: String) {
+        val url = apiconf.BASE_URL+"save_tokken.php"
+        val requestQueue = Volley.newRequestQueue(this)
+
+        val stringRequest = object : StringRequest(Method.POST, url,
+            Response.Listener { response ->
+                Log.d("FCM", "Token saved: $response")
+            },
+            Response.ErrorListener { error ->
+                Log.e("FCM", "Failed to save token: ${error.message}")
+            }) {
+            override fun getParams(): MutableMap<String, String> {
+                val params = HashMap<String, String>()
+                params["user_id"] = userId.toString()
+                params["fcm_token"] = token
+                return params
+            }
+        }
+
+        requestQueue.add(stringRequest)
+    }
+
 }
+

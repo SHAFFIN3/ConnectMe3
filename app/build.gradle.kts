@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
+    alias(libs.plugins.google.gms.google.services)
 }
 
 android {
@@ -52,13 +53,16 @@ dependencies {
     implementation ("androidx.camera:camera-view:1.3.0")
     implementation ("androidx.room:room-runtime:2.6.1")
     implementation(libs.androidx.lifecycle.process)
+    implementation(libs.firebase.messaging)
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+
     kapt("androidx.room:room-compiler:2.6.1")
     implementation( "androidx.room:room-ktx:2.6.1")
 
     implementation ("com.github.bumptech.glide:glide:4.16.0")
     kapt("com.github.bumptech.glide:compiler:4.16.0")
 
-
+    implementation("io.agora.rtc:full-sdk:4.2.3")
     implementation("com.android.volley:volley:1.2.1")
     implementation ("de.hdodenhof:circleimageview:3.1.0")
 
