@@ -5,7 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Bundle
+import android.os.*
 import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
@@ -30,6 +30,7 @@ class DM2 : AppCompatActivity() {
     private lateinit var messageAdapter: MessagesAdapter
     private val messages = mutableListOf<Message>()
     private var selectedMediaBase64 = ""
+    private var screenshotObserver: FileObserver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,11 +86,37 @@ class DM2 : AppCompatActivity() {
                 messageInput.text.clear()
             }
         }
+
+        startScreenshotDetection()
     }
 
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        screenshotObserver?.stopWatching()
+    }
+
+    private fun startScreenshotDetection() {
+        val screenshotsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString() + "/Screenshots"
+        screenshotObserver = object : FileObserver(screenshotsPath, CREATE) {
+            override fun onEvent(event: Int, path: String?) {
+                if (event == CREATE && path != null) {
+                    runOnUiThread {
+                        Toast.makeText(this@DM2, "⚠️ Screenshot taken!", Toast.LENGTH_SHORT).show()
+                        sendMessage("⚠️ The user took a screenshot of the chat.", "text")
+                    }
+                }
+            }
+        }
+        try {
+            screenshotObserver?.startWatching()
+        } catch (e: Exception) {
+            Log.e("ScreenshotObserver", "Error: ${e.message}")
+        }
     }
 
     private fun sendMessage(content: String, type: String) {
