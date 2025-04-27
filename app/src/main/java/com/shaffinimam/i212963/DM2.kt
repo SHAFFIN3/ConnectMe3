@@ -1,3 +1,7 @@
+// Add these dependencies to your app-level build.gradle file
+// implementation 'com.google.firebase:firebase-messaging:23.2.1'
+// implementation 'com.google.firebase:firebase-core:21.1.1'
+
 package com.shaffinimam.i212963
 
 import android.app.AlertDialog
@@ -17,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.google.firebase.messaging.FirebaseMessaging
 import com.shaffinimam.i212963.apiconfig.apiconf
 import com.shaffinimam.i212963.profiledb.ProfileDBHelper
 import de.hdodenhof.circleimageview.CircleImageView
@@ -31,7 +36,9 @@ class DM2 : AppCompatActivity() {
     private val messages = mutableListOf<Message>()
     private var selectedMediaBase64 = ""
     private var screenshotObserver: FileObserver? = null
-
+    private var receiverFcmToken: String = ""
+    private var receiverName: String = ""
+    var name = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dm2)
@@ -43,7 +50,7 @@ class DM2 : AppCompatActivity() {
         id = intent.getIntExtra("id", -1)
 
         var base64 = ""
-        var name = ""
+
 
         if (id != -1) {
             val db = ProfileDBHelper(this)
@@ -51,6 +58,8 @@ class DM2 : AppCompatActivity() {
             if (user != null) {
                 name = user.username
                 base64 = user.picture
+                receiverName = name
+                fetchReceiverFcmToken(id)
             }
         }
 
@@ -89,6 +98,67 @@ class DM2 : AppCompatActivity() {
         }
 
         startScreenshotDetection()
+
+        // Get current user's FCM token for reference
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                Log.d("FCM", "Current user token: $token")
+                updateUserFcmToken(token)
+            }
+        }
+    }
+
+    private fun fetchReceiverFcmToken(receiverId: Int) {
+        val url = "${apiconf.BASE_URL}Notification/get_fcm_token.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                try {
+                    val jsonResponse = JSONObject(response)
+                    if (jsonResponse.getString("status") == "success") {
+                        receiverFcmToken = jsonResponse.getString("fcm_token")
+                        Log.d("FCM", "Receiver token: $receiverFcmToken")
+                    }
+                } catch (e: Exception) {
+                    Log.e("FCM", "Error parsing token: ${e.message}")
+                }
+            },
+            { error ->
+                Log.e("FCM", "Error fetching token: ${error.message}")
+            }) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf("user_id" to receiverId.toString())
+            }
+        }
+
+        queue.add(request)
+    }
+
+    private fun updateUserFcmToken(token: String) {
+        val senderId = SharedPrefManager.getUserId(this)
+        if (senderId == -1) return
+
+        val url = "${apiconf.BASE_URL}/Notification/update_fcm_token.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                Log.d("FCM", "Token updated: $response")
+            },
+            { error ->
+                Log.e("FCM", "Token update error: ${error.message}")
+            }) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf(
+                    "user_id" to senderId.toString(),
+                    "fcm_token" to token
+                )
+            }
+        }
+
+        queue.add(request)
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -134,6 +204,12 @@ class DM2 : AppCompatActivity() {
         val request = object : StringRequest(Method.POST, url,
             { response ->
                 Log.d("DM2", "Sent: $response")
+
+                // After sending message successfully, send notification
+                if (receiverFcmToken.isNotEmpty()) {
+                    sendPushNotification(content, type)
+                }
+
                 loadMessages()
                 selectedMediaBase64 = ""
             },
@@ -155,6 +231,36 @@ class DM2 : AppCompatActivity() {
                         "message_content" to content
                     )
                 }
+            }
+        }
+
+        queue.add(request)
+    }
+
+    private fun sendPushNotification(content: String, type: String) {
+        val url = "${apiconf.BASE_URL}/Notification/send_notification.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val senderName = name ?: "Someone"
+        val messagePreview = if (type == "media") "📷 [Photo]" else
+            if (content.length > 30) content.substring(0, 27) + "..." else content
+
+        val request = object : StringRequest(Method.POST, url,
+            { response ->
+                Log.d("FCM", "Notification sent: $response")
+            },
+            { error ->
+                Log.e("FCM", "Notification error: ${error.message}")
+            }) {
+            override fun getParams(): MutableMap<String, String> {
+                return hashMapOf(
+                    "token" to receiverFcmToken,
+                    "title" to senderName,
+                    "body" to messagePreview,
+                    "user_id" to id.toString(),
+                    "sender_id" to SharedPrefManager.getUserId(this@DM2).toString(),
+                    "notification_type" to "message"
+                )
             }
         }
 

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
@@ -35,34 +36,67 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                saveTokenToServer(userId, token)
+        FirebaseMessaging.getInstance().token
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val token = task.result
+                    Log.d("FCM_TOKEN_SUCCESS", "Token: $token")
+                } else {
+                    Log.e("FCM_TOKEN_FAILED", "Failed to get token", task.exception)
+                }
             }
+            .addOnFailureListener { exception ->
+                Log.e("FCM_TOKEN_ERROR", "Exception getting token", exception)
+            }
+        initializeFcmToken()
+    }
+
+    private fun initializeFcmToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("FCM", "Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+            Log.d("FCM", "FCM Token: $token")
+
+            // Save token locally if needed
+            // SharedPrefManager.saveFcmToken(this, token)
+
+            // Send token to your server
+            updateTokenOnServer(token)
         }
     }
 
-    private fun saveTokenToServer(userId: Int, token: String) {
-        val url = apiconf.BASE_URL+"save_tokken.php"
-        val requestQueue = Volley.newRequestQueue(this)
+    private fun updateTokenOnServer(token: String) {
+        val userId = SharedPrefManager.getUserId(this)
+        if (userId == -1) {
+            Log.d("FCM", "User not logged in, can't update token")
+            return
+        }
 
-        val stringRequest = object : StringRequest(Method.POST, url,
-            Response.Listener { response ->
-                Log.d("FCM", "Token saved: $response")
+        val url = "${apiconf.BASE_URL}Notification/update_fcm_token.php"
+        val queue = Volley.newRequestQueue(this)
+
+        val request = object : StringRequest(
+            Request.Method.POST, url,
+            { response ->
+                Log.d("FCM", "Token updated successfully: $response")
             },
-            Response.ErrorListener { error ->
-                Log.e("FCM", "Failed to save token: ${error.message}")
+            { error ->
+                Log.e("FCM", "Error updating token: ${error.message}")
             }) {
             override fun getParams(): MutableMap<String, String> {
-                val params = HashMap<String, String>()
-                params["user_id"] = userId.toString()
-                params["fcm_token"] = token
-                return params
+                return hashMapOf(
+                    "user_id" to userId.toString(),
+                    "fcm_token" to token
+                )
             }
         }
 
-        requestQueue.add(stringRequest)
+        queue.add(request)
     }
 
 }

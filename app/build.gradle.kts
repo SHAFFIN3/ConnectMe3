@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
-    alias(libs.plugins.google.gms.google.services)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -36,7 +36,6 @@ android {
         jvmTarget = "11"
     }
 }
-
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -55,6 +54,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.firebase.messaging)
     implementation("com.google.firebase:firebase-messaging:23.4.0")
+
+    implementation("com.google.firebase:firebase-core:21.1.1")
 
     kapt("androidx.room:room-compiler:2.6.1")
     implementation( "androidx.room:room-ktx:2.6.1")

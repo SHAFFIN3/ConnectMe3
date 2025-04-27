@@ -9,6 +9,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.android.volley.Response
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.google.firebase.FirebaseApp
 import com.shaffinimam.i212963.apiconfig.apiconf
 import org.json.JSONObject
 
@@ -23,6 +24,8 @@ class MyApp:Application(),LifecycleObserver {
             callListener = CallListener(applicationContext, userId)
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+
+        FirebaseApp.initializeApp(this)
     }
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     fun onEnterForeground() {
